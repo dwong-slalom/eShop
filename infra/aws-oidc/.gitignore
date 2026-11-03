@@ -1,0 +1,12 @@
+# Terraform state (may contain sensitive values) — never commit
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Keep terraform.tfvars here: it holds only non-secret account/region/ARN
+# identifiers for this InnovationLabs account. Remove the next line if your
+# tfvars ever contains secrets.
+!terraform.tfvars

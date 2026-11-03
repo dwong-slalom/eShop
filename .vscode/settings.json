@@ -1,3 +1,12 @@
 {
-    "dotnet.defaultSolution": "eShop.Web.slnf"
+    "dotnet.defaultSolution": "eShop.Web.slnf",
+    "files.watcherExclude": {
+        "**/.terraform/**": true
+    },
+    "files.exclude": {
+        "**/.terraform/**": true
+    },
+    "search.exclude": {
+        "**/.terraform/**": true
+    }
 }

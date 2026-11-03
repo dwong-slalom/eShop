@@ -1,0 +1,14 @@
+# Terraform — never commit provider caches, state, or plan files.
+# These are large and/or may contain sensitive values, and are regenerable.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Saved plan output (can embed secrets; regenerate with `terraform plan`)
+tfplan
+*.tfplan
+
+# Keep the provider lock file (.terraform.lock.hcl) committed — it is small
+# and pins provider versions for reproducible runs.
