@@ -227,7 +227,7 @@ module "mobile_bff" {
   cluster_arn  = aws_ecs_cluster.eshop.arn
   cluster_name  = aws_ecs_cluster.eshop.name
   desired_count = var.store_desired_count
-  image         = "mcr.microsoft.com/dotnet/nightly/yarp:2.3"
+  image         = "mcr.microsoft.com/dotnet/nightly/yarp:2.3-preview"
 
   env = merge(local.common_env, {
     # Clusters -> internal Cloud Map services.
