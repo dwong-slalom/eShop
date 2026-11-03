@@ -1,0 +1,99 @@
+name: Deploy to ECS Fargate
+
+# Keyless deploy: authenticates to AWS via OIDC (no stored access keys).
+# The assumed role is created by infra/aws-oidc (Terraform).
+#
+# eShop ships no Dockerfile — it's a .NET 10 Aspire app. We build the container
+# image with the .NET SDK's built-in container publishing
+# (`dotnet publish /t:PublishContainer`), which needs no Dockerfile and no
+# csproj changes on the net10.0 Web SDK. The image is pushed straight to ECR,
+# then the ECS service is rolled onto the new task definition revision.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required for OIDC. id-token: write lets the job request a GitHub OIDC token;
+# contents: read is needed to check out the repo.
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: eshop/webapp          # ECR repo name
+  ECS_CLUSTER: eshop                    # ECS cluster name
+  ECS_SERVICE: eshop-webapp             # ECS service name
+  ECS_TASK_DEFINITION: eshop-webapp     # task definition family
+  CONTAINER_NAME: webapp                # container name in the task def
+  WEBAPP_PROJECT: src/WebApp/WebApp.csproj  # user-facing Blazor storefront
+  CONTAINER_PORT: "8080"                # ASP.NET Core .NET 8+ default listen port
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json   # pins SDK 10.0.302 (latestFeature)
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}   # arn:aws:iam::<acct>:role/github-actions-eshop-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image (.NET SDK container publish)
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          # The .NET SDK pushes directly to the registry via /t:PublishContainer.
+          # ContainerRegistry must be the host only; ContainerRepository is the
+          # image path; ContainerImageTag is the tag. The SDK authenticates
+          # using the Docker credentials amazon-ecr-login already configured.
+          dotnet publish "$WEBAPP_PROJECT" \
+            -c Release \
+            /t:PublishContainer \
+            -p:ContainerRegistry="$REGISTRY" \
+            -p:ContainerRepository="$ECR_REPOSITORY" \
+            -p:ContainerImageTag="$IMAGE_TAG" \
+            -p:ContainerPort="$CONTAINER_PORT"
+
+          echo "image=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_DEFINITION" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render new image into the task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build.outputs.image }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
