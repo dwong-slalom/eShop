@@ -2,10 +2,13 @@
 
 ## Overview
 - **Feature:** Declarative Pricing Rules Engine for eShop
-- **Start:** Session began with user request for pricing/promotions re-architecture
-- **End:** 2026-11-03 (completion of Tasks 1-9)
-- **Total Duration:** ~3.5 hours (across multiple checkpoint sessions)
-- **Session(s):** Multiple checkpoints; current session handles Tasks 8-9
+- **Feature Start:** Multi-checkpoint effort began with user request for pricing/promotions re-architecture
+- **Feature End:** 2026-11-03 (completion of Tasks 1-9)
+- **Current Checkpoint Session:**
+  - **Start:** 2026-11-03 ~14:15 PST
+  - **End:** 2026-11-03 15:27:03 PST
+  - **Duration:** ~1 hour 12 minutes (Tasks 8-9 + regression testing)
+- **Total Effort (All Tasks 1-9):** ~3.5 hours across multiple checkpoint sessions
 
 ## Objectives Achieved
 ✅ **Task 1-7:** Implemented in prior checkpoints (data classes, interface, engine, DI, integration)  
