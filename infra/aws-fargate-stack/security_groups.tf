@@ -42,6 +42,19 @@ resource "aws_security_group" "task" {
     security_groups = [aws_security_group.alb.id]
   }
 
+  # Intra-cluster task-to-task (service discovery, postgres 5432, redis 6379,
+  # rabbitmq 5672, inter-service HTTP). Defined INLINE and self-referential.
+  # Do NOT also declare a separate aws_security_group_rule for this SG: mixing
+  # inline rules with standalone rule resources makes Terraform delete the
+  # out-of-band rule on every apply, which repeatedly broke connectivity.
+  ingress {
+    description = "Intra-cluster task-to-task"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -49,15 +62,4 @@ resource "aws_security_group" "task" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = merge(var.tags, { Name = "${var.project}-task-sg" })
-}
-
-# Allow tasks to talk to each other (service discovery, DB, redis, rabbitmq).
-resource "aws_security_group_rule" "task_self" {
-  type                     = "ingress"
-  from_port                = 0
-  to_port                  = 0
-  protocol                 = "-1"
-  security_group_id        = aws_security_group.task.id
-  source_security_group_id = aws_security_group.task.id
-  description              = "Intra-cluster task-to-task"
 }
