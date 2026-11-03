@@ -85,11 +85,12 @@ resource "aws_service_discovery_service" "this" {
 }
 
 resource "aws_ecs_service" "this" {
-  name            = var.name
-  cluster         = var.cluster_arn
-  task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+  name                              = var.name
+  cluster                           = var.cluster_arn
+  task_definition                   = aws_ecs_task_definition.this.arn
+  desired_count                     = var.desired_count
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = var.target_group_arn != null ? var.health_check_grace_period_seconds : null
 
   network_configuration {
     subnets          = var.subnets

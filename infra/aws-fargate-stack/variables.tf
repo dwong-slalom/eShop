@@ -87,6 +87,13 @@ variable "image_tag" {
   default = "latest"
 }
 
+# CIDRs allowed to reach the public ALB (80/443). Defaults to open; override in
+# terraform.tfvars to lock the storefront down to specific clients.
+variable "allowed_ingress_cidrs" {
+  type    = list(string)
+  default = ["0.0.0.0/0"]
+}
+
 # Desired task count for the backing stores (postgres/redis/eventbus). These
 # use public images and can come up on the first apply.
 variable "store_desired_count" {

@@ -52,9 +52,10 @@ module "identity_api" {
   namespace_id       = aws_service_discovery_private_dns_namespace.eshop.id
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task.arn
-  log_group          = aws_cloudwatch_log_group.eshop.name
-  target_group_arn   = aws_lb_target_group.identity.arn
-  tags               = var.tags
+  log_group                         = aws_cloudwatch_log_group.eshop.name
+  target_group_arn                  = aws_lb_target_group.identity.arn
+  health_check_grace_period_seconds = 600
+  tags                              = var.tags
 }
 
 # --- catalog-api (internal, no auth) ---
@@ -313,7 +314,8 @@ module "webapp" {
   namespace_id       = aws_service_discovery_private_dns_namespace.eshop.id
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task.arn
-  log_group          = aws_cloudwatch_log_group.eshop.name
-  target_group_arn   = aws_lb_target_group.webapp.arn
-  tags               = var.tags
+  log_group                         = aws_cloudwatch_log_group.eshop.name
+  target_group_arn                  = aws_lb_target_group.webapp.arn
+  health_check_grace_period_seconds = 300
+  tags                              = var.tags
 }

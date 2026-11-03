@@ -10,3 +10,6 @@ project = "eshopf"
 store_desired_count = 1
 app_desired_count   = 1
 image_tag           = "2466233"
+
+# Lock the public ALB down to this workstation's public IP only.
+allowed_ingress_cidrs = ["72.10.71.58/32"]

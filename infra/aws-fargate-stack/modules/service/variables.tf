@@ -71,6 +71,14 @@ variable "target_group_arn" {
   default = null
 }
 
+# Grace period (seconds) for ECS to ignore ELB health checks after a task
+# starts. Needed for services that run EF migrations + seeding synchronously
+# before the web server begins listening (e.g. identity-api).
+variable "health_check_grace_period_seconds" {
+  type    = number
+  default = null
+}
+
 # Optional EFS volume (for postgres).
 variable "efs_file_system_id" {
   type    = string
