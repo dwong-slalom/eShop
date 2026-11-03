@@ -63,3 +63,14 @@ resource "aws_ecr_repository" "svc" {
   }
   tags = var.tags
 }
+
+# mobile-bff is not a .NET project; it is the prebuilt YARP image with eShop's
+# routes baked in (see mobile-bff/Dockerfile). It gets its own ECR repo.
+resource "aws_ecr_repository" "mobile_bff" {
+  name                 = "${var.project}/mobile-bff"
+  image_tag_mutability = "MUTABLE"
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+  tags = var.tags
+}

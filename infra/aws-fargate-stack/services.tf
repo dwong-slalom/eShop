@@ -228,30 +228,11 @@ module "mobile_bff" {
   cluster_arn  = aws_ecs_cluster.eshop.arn
   cluster_name  = aws_ecs_cluster.eshop.name
   desired_count = var.store_desired_count
-  image         = "mcr.microsoft.com/dotnet/nightly/yarp:2.3-preview"
+  # Custom YARP image with eShop's routes baked in (mobile-bff/Dockerfile).
+  # The base image is chiseled (no shell), so config is COPY'd at build time.
+  image = "${aws_ecr_repository.mobile_bff.repository_url}:${var.image_tag}"
 
-  env = merge(local.common_env, {
-    # Clusters -> internal Cloud Map services.
-    "REVERSEPROXY__CLUSTERS__catalog__DESTINATIONS__d__ADDRESS"  = local.disco["catalog-api"]
-    "REVERSEPROXY__CLUSTERS__ordering__DESTINATIONS__d__ADDRESS" = local.disco["ordering-api"]
-    "REVERSEPROXY__CLUSTERS__identity__DESTINATIONS__d__ADDRESS" = local.disco["identity-api"]
-
-    # Catalog: strip /catalog-api prefix, plus a catch-all for /api/catalog.
-    "REVERSEPROXY__ROUTES__catalog-prefixed__CLUSTERID"                   = "catalog"
-    "REVERSEPROXY__ROUTES__catalog-prefixed__MATCH__PATH"                 = "/catalog-api/{**catch-all}"
-    "REVERSEPROXY__ROUTES__catalog-prefixed__TRANSFORMS__0__PathRemovePrefix" = "/catalog-api"
-    "REVERSEPROXY__ROUTES__catalog-plain__CLUSTERID"                      = "catalog"
-    "REVERSEPROXY__ROUTES__catalog-plain__MATCH__PATH"                    = "/api/catalog/{**catch-all}"
-
-    # Ordering.
-    "REVERSEPROXY__ROUTES__orders__CLUSTERID"   = "ordering"
-    "REVERSEPROXY__ROUTES__orders__MATCH__PATH" = "/api/orders/{**catch-all}"
-
-    # Identity: strip /identity prefix.
-    "REVERSEPROXY__ROUTES__identity__CLUSTERID"                       = "identity"
-    "REVERSEPROXY__ROUTES__identity__MATCH__PATH"                     = "/identity/{**catch-all}"
-    "REVERSEPROXY__ROUTES__identity__TRANSFORMS__0__PathRemovePrefix" = "/identity"
-  })
+  env = merge(local.common_env, {})
 
   subnets            = aws_subnet.private[*].id
   security_groups    = [aws_security_group.task.id]
