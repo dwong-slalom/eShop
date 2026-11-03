@@ -22,6 +22,8 @@ locals {
       portMappings = [{ containerPort = var.container_port, protocol = "tcp" }]
     } : {},
     var.command != null ? { command = var.command } : {},
+    var.entrypoint != null ? { entryPoint = var.entrypoint } : {},
+    var.health_check != null ? { healthCheck = var.health_check } : {},
     local.use_efs ? {
       mountPoints = [{
         sourceVolume  = "data"
@@ -41,6 +43,14 @@ resource "aws_ecs_task_definition" "this" {
   execution_role_arn       = var.execution_role_arn
   task_role_arn            = var.task_role_arn
 
+  # Images are built for linux-arm64 (matches the arm64 build host and runs on
+  # Graviton Fargate). The public store/proxy images are multi-arch, so ARM64
+  # works for them too.
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+
   container_definitions = jsonencode([local.container])
 
   dynamic "volume" {
@@ -56,11 +66,6 @@ resource "aws_ecs_task_definition" "this" {
         }
       }
     }
-  }
-
-  # App services get their image swapped by CI; ignore to avoid drift.
-  lifecycle {
-    ignore_changes = [container_definitions]
   }
 
   tags = var.tags
@@ -103,10 +108,6 @@ resource "aws_ecs_service" "this" {
       container_name   = var.name
       container_port   = var.container_port
     }
-  }
-
-  lifecycle {
-    ignore_changes = [task_definition, desired_count]
   }
 
   tags = var.tags

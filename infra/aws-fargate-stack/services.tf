@@ -10,11 +10,19 @@
 # ---------------------------------------------------------------------------
 
 locals {
-  placeholder_image = "mcr.microsoft.com/dotnet/aspnet:10.0"
+  # Real per-service images in ECR, tagged by the build script.
+  img = { for name in local.app_services :
+    name => "${aws_ecr_repository.svc[name].repository_url}:${var.image_tag}"
+  }
 
   common_env = {
     ASPNETCORE_FORWARDEDHEADERS_ENABLED = "true"
     ASPNETCORE_HTTP_PORTS               = "8080"
+    # eShop's ServiceDefaults only maps /health and /alive (and enables data
+    # seeding) when the environment is Development. Running the containers in
+    # Development keeps health checks working and seeds the catalog/identity
+    # data. This is a reference deployment, not production.
+    ASPNETCORE_ENVIRONMENT = "Development"
   }
 }
 
@@ -25,8 +33,9 @@ module "identity_api" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["identity-api"]
 
   env = merge(local.common_env, {
     ConnectionStrings__identitydb = local.conn.identitydb
@@ -55,8 +64,9 @@ module "catalog_api" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["catalog-api"]
 
   env = merge(local.common_env, {
     ConnectionStrings__catalogdb = local.conn.catalogdb
@@ -79,8 +89,9 @@ module "basket_api" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["basket-api"]
 
   env = merge(local.common_env, {
     ConnectionStrings__redis    = local.conn.redis
@@ -105,8 +116,9 @@ module "ordering_api" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["ordering-api"]
 
   env = merge(local.common_env, {
     ConnectionStrings__orderingdb = local.conn.orderingdb
@@ -131,8 +143,9 @@ module "order_processor" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["order-processor"]
   expose_port  = false
 
   env = merge(local.common_env, {
@@ -156,8 +169,9 @@ module "payment_processor" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["payment-processor"]
   expose_port  = false
 
   env = merge(local.common_env, {
@@ -180,8 +194,9 @@ module "webhooks_api" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["webhooks-api"]
 
   env = merge(local.common_env, {
     ConnectionStrings__webhooksdb = local.conn.webhooksdb
@@ -199,20 +214,42 @@ module "webhooks_api" {
   tags               = var.tags
 }
 
-# --- mobile-bff (public, YARP) ---
+# --- mobile-bff (public, YARP reverse proxy) ---
+# Not a repo project (Aspire generates YARP config at build time). We run the
+# official YARP image and supply an equivalent route/cluster config via the
+# ReverseProxy__ env namespace. The web storefront does not depend on this; it
+# is the mobile BFF, included for topology completeness.
 module "mobile_bff" {
   source       = "./modules/service"
   name         = "mobile-bff"
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.store_desired_count
+  image         = "mcr.microsoft.com/dotnet/nightly/yarp:2.3"
 
   env = merge(local.common_env, {
-    "services__catalog-api__http__0"  = local.disco["catalog-api"]
-    "services__ordering-api__http__0" = local.disco["ordering-api"]
-    "services__identity-api__http__0" = local.disco["identity-api"]
+    # Clusters -> internal Cloud Map services.
+    "REVERSEPROXY__CLUSTERS__catalog__DESTINATIONS__d__ADDRESS"  = local.disco["catalog-api"]
+    "REVERSEPROXY__CLUSTERS__ordering__DESTINATIONS__d__ADDRESS" = local.disco["ordering-api"]
+    "REVERSEPROXY__CLUSTERS__identity__DESTINATIONS__d__ADDRESS" = local.disco["identity-api"]
+
+    # Catalog: strip /catalog-api prefix, plus a catch-all for /api/catalog.
+    "REVERSEPROXY__ROUTES__catalog-prefixed__CLUSTERID"                   = "catalog"
+    "REVERSEPROXY__ROUTES__catalog-prefixed__MATCH__PATH"                 = "/catalog-api/{**catch-all}"
+    "REVERSEPROXY__ROUTES__catalog-prefixed__TRANSFORMS__0__PathRemovePrefix" = "/catalog-api"
+    "REVERSEPROXY__ROUTES__catalog-plain__CLUSTERID"                      = "catalog"
+    "REVERSEPROXY__ROUTES__catalog-plain__MATCH__PATH"                    = "/api/catalog/{**catch-all}"
+
+    # Ordering.
+    "REVERSEPROXY__ROUTES__orders__CLUSTERID"   = "ordering"
+    "REVERSEPROXY__ROUTES__orders__MATCH__PATH" = "/api/orders/{**catch-all}"
+
+    # Identity: strip /identity prefix.
+    "REVERSEPROXY__ROUTES__identity__CLUSTERID"                       = "identity"
+    "REVERSEPROXY__ROUTES__identity__MATCH__PATH"                     = "/identity/{**catch-all}"
+    "REVERSEPROXY__ROUTES__identity__TRANSFORMS__0__PathRemovePrefix" = "/identity"
   })
 
   subnets            = aws_subnet.private[*].id
@@ -232,8 +269,9 @@ module "webhooksclient" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["webhooksclient"]
 
   env = merge(local.common_env, {
     IdentityUrl                       = local.url_identity
@@ -257,8 +295,9 @@ module "webapp" {
   project      = var.project
   region       = var.aws_region
   cluster_arn  = aws_ecs_cluster.eshop.arn
-  cluster_name = aws_ecs_cluster.eshop.name
-  image        = local.placeholder_image
+  cluster_name  = aws_ecs_cluster.eshop.name
+  desired_count = var.app_desired_count
+  image         = local.img["webapp"]
 
   env = merge(local.common_env, {
     IdentityUrl                       = local.url_identity

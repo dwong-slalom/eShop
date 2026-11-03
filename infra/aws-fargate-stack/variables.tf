@@ -72,3 +72,24 @@ variable "tags" {
     Stack     = "fargate-full"
   }
 }
+
+# Desired task count for the 9 .NET app services. Start at 0 for the first
+# apply (placeholder images would crash-loop), then set to 1 after the real
+# images are built and pushed to ECR, and re-apply.
+variable "app_desired_count" {
+  type    = number
+  default = 0
+}
+
+# Image tag (git short SHA) pushed by build-and-push.sh for all app services.
+variable "image_tag" {
+  type    = string
+  default = "latest"
+}
+
+# Desired task count for the backing stores (postgres/redis/eventbus). These
+# use public images and can come up on the first apply.
+variable "store_desired_count" {
+  type    = number
+  default = 1
+}

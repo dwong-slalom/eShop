@@ -30,6 +30,18 @@ variable "command" {
   default     = null
 }
 
+variable "entrypoint" {
+  type        = list(string)
+  description = "Optional container entryPoint override."
+  default     = null
+}
+
+variable "health_check" {
+  type        = any
+  description = "Optional ECS container-level healthCheck block."
+  default     = null
+}
+
 variable "container_port" {
   type    = number
   default = 8080
