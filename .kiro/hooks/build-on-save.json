@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Build on C# file save",
+      "trigger": "PostFileSave",
+      "description": "Builds the web solution whenever a C# source file is saved.",
+      "matcher": "\\.cs$",
+      "action": {
+        "type": "command",
+        "command": "dotnet build eShop.Web.slnf",
+        "timeout": 600
+      }
+    }
+  ]
+}
