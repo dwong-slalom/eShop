@@ -1,0 +1,46 @@
+{
+  "pricing": {
+    "rules": [
+      {
+        "name": "volume_discount_5_units",
+        "description": "10% off when buying 5+ units of same item",
+        "condition": {
+          "type": "quantity",
+          "operator": ">=",
+          "value": "5"
+        },
+        "discountPercent": 10
+      },
+      {
+        "name": "volume_discount_10_units",
+        "description": "15% off when buying 10+ units of same item",
+        "condition": {
+          "type": "quantity",
+          "operator": ">=",
+          "value": "10"
+        },
+        "discountPercent": 15
+      },
+      {
+        "name": "category_electronics_5_percent",
+        "description": "5% off all electronics",
+        "condition": {
+          "type": "category",
+          "operator": "==",
+          "value": "electronics"
+        },
+        "discountPercent": 5
+      },
+      {
+        "name": "premium_customer_discount",
+        "description": "20% off for premium tier customers",
+        "condition": {
+          "type": "customer_tier",
+          "operator": "==",
+          "value": "premium"
+        },
+        "discountPercent": 20
+      }
+    ]
+  }
+}
