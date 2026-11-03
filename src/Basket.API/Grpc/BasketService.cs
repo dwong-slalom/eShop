@@ -2,11 +2,13 @@
 using eShop.Basket.API.Repositories;
 using eShop.Basket.API.Extensions;
 using eShop.Basket.API.Model;
+using eShop.Catalog.API.Services.Pricing;
 
 namespace eShop.Basket.API.Grpc;
 
 public class BasketService(
     IBasketRepository repository,
+    IPricingRulesEngine pricingEngine,
     ILogger<BasketService> logger) : Basket.BasketBase
 {
     [AllowAnonymous]
@@ -47,6 +49,22 @@ public class BasketService(
         }
 
         var customerBasket = MapToCustomerBasket(userId, request);
+        
+        // Apply pricing rules to each basket item
+        foreach (var item in customerBasket.Items)
+        {
+            var discount = pricingEngine.CalculateDiscount(
+                item.Category ?? "general",
+                item.Quantity,
+                "standard"); // TODO: look up actual customer tier
+            
+            if (discount > 0)
+            {
+                item.AppliedDiscount = discount;
+                logger.LogDebug("Applied {Discount}% discount to item {ProductId}", discount, item.ProductId);
+            }
+        }
+        
         var response = await repository.UpdateBasketAsync(customerBasket);
         if (response is null)
         {
