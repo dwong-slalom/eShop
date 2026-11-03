@@ -232,7 +232,13 @@ module "mobile_bff" {
   # The base image is chiseled (no shell), so config is COPY'd at build time.
   image = "${aws_ecr_repository.mobile_bff.repository_url}:${var.image_tag}"
 
-  env = merge(local.common_env, {})
+  # The YARP image hardcodes ASPNETCORE_URLS=http://+:5000, which overrides
+  # ASPNETCORE_HTTP_PORTS. Force it to 8080 so it matches the task port mapping
+  # and the ALB target group health check (otherwise it listens on 5000 and
+  # fails health checks -> crash loop).
+  env = merge(local.common_env, {
+    ASPNETCORE_URLS = "http://+:8080"
+  })
 
   subnets            = aws_subnet.private[*].id
   security_groups    = [aws_security_group.task.id]
