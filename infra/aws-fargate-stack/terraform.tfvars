@@ -7,6 +7,8 @@ project = "eshopf"
 
 # Bring the backing stores up on the first apply; app services stay at 0 until
 # their images are built and pushed, then we raise this to 1 and re-apply.
+# Running: backing stores and app services are both up.
+# (To pause the stack, set both to 0 and apply. Infra and images are preserved.)
 store_desired_count = 1
 app_desired_count   = 1
 image_tag           = "2466233"
